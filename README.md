@@ -18,6 +18,23 @@
 ```bash
 npm install
 cp .env.example .env.local   # ומלאו את המפתחות (Supabase + Anthropic)
+```
+
+### הקמת מסד הנתונים (Supabase)
+
+1. צרו פרויקט חדש ב-[supabase.com](https://supabase.com) (יש תוכנית חינמית).
+2. מ-Project Settings → API, העתיקו את ה-URL ואת מפתחות ה-anon וה-service_role ל-`.env.local`.
+3. הריצו את קבצי ה-migration לפי הסדר (דרך ה-SQL Editor באתר Supabase, או עם `supabase db push`
+   אם מותקן ה-CLI): `supabase/migrations/0001_schema.sql` → `0002_rls.sql` → `0003_reference_data.sql`.
+4. (אופציונלי) זרעו נתוני דמו לבדיקה — מורה אחד, כיתה אחת, 8 תלמידים:
+   ```bash
+   npm run seed:demo
+   ```
+   בסיום יודפסו פרטי ההתחברות לדמו (אימייל המורה ושם המשתמש של התלמיד הראשון).
+
+### הרצת השרת
+
+```bash
 npm run dev
 ```
 
