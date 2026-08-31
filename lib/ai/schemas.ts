@@ -29,6 +29,23 @@ export const generateHintOutputSchema = z.object({
 });
 export type GenerateHintOutput = z.infer<typeof generateHintOutputSchema>;
 
+/**
+ * הפלט המובנה של analyzeStudent (סעיף 9 במפרט - מנוע ההתאמה האישית).
+ * מוצג למורה בפרופיל הקורא של התלמיד/ה ("המלצת AI", סעיף 6).
+ */
+export const analyzeStudentOutputSchema = z.object({
+  summary: z
+    .string()
+    .describe("2-3 משפטים המתארים את מצב הקריאה הנוכחי של התלמיד/ה - חוזקות ותחומים לחיזוק"),
+  recommendation: z
+    .string()
+    .describe("המלצה פדגוגית קונקרטית וקצרה למורה - מה כדאי לתרגל עם התלמיד/ה ואיך"),
+  focus_skill_key: z
+    .string()
+    .describe("מפתח המיומנות (מתוך הרשימה שסופקה) שהכי כדאי להתמקד בה עכשיו"),
+});
+export type AnalyzeStudentOutput = z.infer<typeof analyzeStudentOutputSchema>;
+
 /** תוצאה בטוחה לשימוש כש-AI לא זמין (סעיף 26 במפרט - אין לקרוס, יש להמשיך לעבוד) */
 export interface AiUnavailable {
   unavailable: true;

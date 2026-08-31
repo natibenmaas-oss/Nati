@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Clock, Flame, Star, Target, BookOpen } from "lucide-react";
+import { Clock, Flame, Star, Target, BookOpen, Lightbulb } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentDashboardData } from "@/lib/scoring/student-dashboard";
+import { getStudentProfileData } from "@/lib/scoring/student-profile";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,14 @@ export default async function StudentDashboardPage({
     .single();
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "";
-  const { pendingAssignments, currentStreak, totalPoints } = await getStudentDashboardData(user!.id);
+  const [{ pendingAssignments, currentStreak, totalPoints }, { weaknesses }] = await Promise.all([
+    getStudentDashboardData(user!.id),
+    getStudentProfileData(user!.id),
+  ]);
   const nextAssignment = pendingAssignments[0];
+  // המלצת מיקוד שבועית - לוגיקת כללים פשוטה (לא AI), מבוססת על המיומנות
+  // עם הציון הכי נמוך מבין אלו שכבר יש עליהן מספיק נתונים (סעיף 9 במפרט)
+  const focusSkill = weaknesses[0];
 
   return (
     <div className="flex flex-col gap-6">
@@ -48,7 +55,7 @@ export default async function StudentDashboardPage({
         </p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2 rounded-full bg-warning/20 px-4 py-2 text-sm font-medium text-warning-foreground">
           <Flame className="size-4" aria-hidden />
           רצף {currentStreak} ימים
@@ -57,6 +64,12 @@ export default async function StudentDashboardPage({
           <Star className="size-4" aria-hidden />
           {totalPoints} נקודות
         </div>
+        {focusSkill && (
+          <div className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground">
+            <Lightbulb className="size-4" aria-hidden />
+            מומלץ להתמקד ב{focusSkill.skillName}
+          </div>
+        )}
       </div>
 
       {!nextAssignment ? (

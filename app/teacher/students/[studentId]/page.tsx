@@ -2,11 +2,13 @@ import { notFound } from "next/navigation";
 import { Sparkles, ThumbsUp, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentProfileData } from "@/lib/scoring/student-profile";
+import { getStoredRecommendation } from "@/lib/actions/recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SkillBar } from "@/components/shared/skill-bar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TeacherNotesPanel } from "@/components/teacher/teacher-notes-panel";
+import { AiRecommendationPanel } from "@/components/teacher/ai-recommendation-panel";
 
 export default async function StudentProfilePage({
   params,
@@ -32,7 +34,7 @@ export default async function StudentProfilePage({
 
   if (!profile || !student) notFound();
 
-  const [{ skills, strengths, weaknesses }, { data: notes }] = await Promise.all([
+  const [{ skills, strengths, weaknesses }, { data: notes }, recommendation] = await Promise.all([
     getStudentProfileData(studentId),
     supabase
       .from("teacher_notes")
@@ -40,6 +42,7 @@ export default async function StudentProfilePage({
       .eq("teacher_id", user!.id)
       .eq("student_id", studentId)
       .order("created_at", { ascending: false }),
+    getStoredRecommendation(studentId),
   ]);
 
   return (
@@ -131,11 +134,7 @@ export default async function StudentProfilePage({
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-6">
-          <EmptyState
-            icon={Sparkles}
-            title="בבנייה"
-            description="המלצת AI מותאמת אישית לתלמיד/ה, המבוססת על ניתוח נתוני הקריאה שלו/שלה, תתווסף בשלב מנוע ההתאמה האישית."
-          />
+          <AiRecommendationPanel studentId={studentId} initialRecommendation={recommendation} />
         </CardContent>
       </Card>
 
