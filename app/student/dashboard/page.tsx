@@ -1,5 +1,11 @@
+import Link from "next/link";
+import { Clock, Flame, Star, Target, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getStudentDashboardData } from "@/lib/scoring/student-dashboard";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata = { title: "הבית שלי — ReadWise AI" };
 
@@ -15,23 +21,90 @@ export default async function StudentDashboardPage() {
     .single();
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "";
+  const { pendingAssignments, currentStreak, totalPoints } = await getStudentDashboardData(user!.id);
+  const nextAssignment = pendingAssignments[0];
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold">שלום {firstName} 👋</h1>
-        <p className="text-muted-foreground">בקרוב יופיעו כאן משימות הקריאה שלך</p>
+        <p className="text-muted-foreground">
+          {pendingAssignments.length === 0
+            ? "אין לך משימות ממתינות כרגע — כל הכבוד!"
+            : pendingAssignments.length === 1
+              ? "היום מחכה לך משימת קריאה אחת"
+              : `היום מחכות לך ${pendingAssignments.length} משימות קריאה`}
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>בקרוב: משימת הקריאה של היום</CardTitle>
-        </CardHeader>
-        <CardContent className="pb-6 text-sm text-muted-foreground">
-          כרטיס משימת הקריאה היומית, זמן משוער, ומיומנות מתורגלת — יופיעו כאן לאחר שהמורה
-          יקצה לך משימות ולאחר בניית מנוע הטקסטים והשאלות.
-        </CardContent>
-      </Card>
+      <div className="flex gap-3">
+        <div className="flex items-center gap-2 rounded-full bg-warning/20 px-4 py-2 text-sm font-medium text-warning-foreground">
+          <Flame className="size-4" aria-hidden />
+          רצף {currentStreak} ימים
+        </div>
+        <div className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+          <Star className="size-4" aria-hidden />
+          {totalPoints} נקודות
+        </div>
+      </div>
+
+      {!nextAssignment ? (
+        <EmptyState
+          icon={BookOpen}
+          title="אין כרגע משימת קריאה"
+          description="כשהמורה יקצה לך משימה חדשה, היא תופיע כאן."
+        />
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6 pb-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-3xl" aria-hidden>
+                {nextAssignment.coverIcon}
+              </div>
+              <div>
+                <p className="text-lg font-bold">{nextAssignment.textTitle}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock className="size-4" aria-hidden />
+                    זמן משוער: {nextAssignment.estimatedReadingTime} דקות
+                  </span>
+                  {nextAssignment.skillFocusNames.map((name) => (
+                    <span key={name} className="flex items-center gap-1">
+                      <Target className="size-4" aria-hidden />
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <Button asChild size="lg">
+              <Link href={`/student/assignment/${nextAssignment.assignmentId}/prepare`}>התחל</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {pendingAssignments.length > 1 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-muted-foreground">משימות נוספות</p>
+          {pendingAssignments.slice(1).map((a) => (
+            <Card key={a.assignmentId}>
+              <CardContent className="flex items-center justify-between gap-4 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl" aria-hidden>
+                    {a.coverIcon}
+                  </span>
+                  <span className="font-medium">{a.textTitle}</span>
+                  {a.submissionStatus === "in_progress" && <Badge variant="secondary">בתהליך</Badge>}
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/student/assignment/${a.assignmentId}/prepare`}>המשך</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
