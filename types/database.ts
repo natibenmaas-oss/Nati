@@ -237,6 +237,9 @@ export interface Database {
           duration_seconds: number | null;
           wpm_estimated: number | null;
           is_estimated: boolean;
+          recognized_word_count: number | null;
+          pause_count: number | null;
+          recognized_accuracy: number | null;
           reflection_text: string | null;
           created_at: string;
         },
@@ -251,6 +254,9 @@ export interface Database {
           duration_seconds?: number | null;
           wpm_estimated?: number | null;
           is_estimated?: boolean;
+          recognized_word_count?: number | null;
+          pause_count?: number | null;
+          recognized_accuracy?: number | null;
           reflection_text?: string | null;
         }
       >;

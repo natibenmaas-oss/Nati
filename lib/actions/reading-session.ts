@@ -79,15 +79,27 @@ export async function startReadingSession(
   return { sessionId: session.id };
 }
 
-export async function finishReadingStep(
-  sessionId: string,
-  durationSeconds: number,
-  wpmEstimated: number | null
-) {
+export interface FinishReadingMetrics {
+  durationSeconds: number;
+  wpmEstimated: number | null;
+  // המדדים הבאים קיימים רק במצב "קריאה בקול" וכאשר הדפדפן תומך ב-Web Speech API
+  recognizedWordCount?: number | null;
+  pauseCount?: number | null;
+  recognizedAccuracy?: number | null;
+}
+
+export async function finishReadingStep(sessionId: string, metrics: FinishReadingMetrics) {
   const supabase = await createClient();
   await supabase
     .from("reading_sessions")
-    .update({ duration_seconds: durationSeconds, wpm_estimated: wpmEstimated, is_estimated: true })
+    .update({
+      duration_seconds: metrics.durationSeconds,
+      wpm_estimated: metrics.wpmEstimated,
+      is_estimated: true,
+      recognized_word_count: metrics.recognizedWordCount ?? null,
+      pause_count: metrics.pauseCount ?? null,
+      recognized_accuracy: metrics.recognizedAccuracy ?? null,
+    })
     .eq("id", sessionId);
 }
 

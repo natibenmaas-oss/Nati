@@ -9,7 +9,7 @@
 | 5 | Text Engine (בנק טקסטים + סינון + seed) | ✅ |
 | 6 | Question Engine + 5 שלבי משימת קריאה | ✅ |
 | 7 | AI Evaluation (evaluateAnswer, generateHint) | ✅ (קוד מוכן, טרם נבדק מול מפתח Anthropic חי) |
-| 8 | Reading Aloud (Web Speech API) | ⬜ |
+| 8 | Reading Aloud (Web Speech API) | ✅ |
 | 9 | Personalization Engine | ⬜ |
 | 10 | Analytics (פרופיל קורא, גרפים, דוח שבועי) | ⬜ |
 | 11 | Gamification | ⬜ |
