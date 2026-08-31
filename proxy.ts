@@ -49,8 +49,10 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * התאם לכל הנתיבים חוץ מ-static assets, תמונות, קבצי metadata ו-API של Next עצמו.
+     * התאם לכל הנתיבים חוץ מ-static assets, תמונות, קבצי metadata, ו-Route Handlers תחת
+     * /api - אלה מנהלים הרשאות משלהם (למשל app/api/admin/seed-demo, המוגן בסוד ולא
+     * בסשן מחובר) ולא אמורים לעבור את הפניית ה-login/דשבורד של ה-proxy הזה.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
