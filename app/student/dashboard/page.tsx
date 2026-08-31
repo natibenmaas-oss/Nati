@@ -9,7 +9,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata = { title: "הבית שלי — ReadWise AI" };
 
-export default async function StudentDashboardPage() {
+export default async function StudentDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ completed?: string }>;
+}) {
+  const { completed } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,6 +31,12 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {completed === "1" && (
+        <div className="rounded-lg bg-success/15 px-4 py-3 text-sm font-medium text-success" role="status">
+          כל הכבוד! השלמת את משימת הקריאה 🎉
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold">שלום {firstName} 👋</h1>
         <p className="text-muted-foreground">

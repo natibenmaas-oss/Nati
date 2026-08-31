@@ -237,6 +237,7 @@ export interface Database {
           duration_seconds: number | null;
           wpm_estimated: number | null;
           is_estimated: boolean;
+          reflection_text: string | null;
           created_at: string;
         },
         {
@@ -250,6 +251,7 @@ export interface Database {
           duration_seconds?: number | null;
           wpm_estimated?: number | null;
           is_estimated?: boolean;
+          reflection_text?: string | null;
         }
       >;
       answers: Table<
@@ -295,6 +297,7 @@ export interface Database {
           score?: number;
           sample_size?: number;
           trend?: SkillTrend;
+          updated_at?: string;
         }
       >;
       student_vocabulary: Table<

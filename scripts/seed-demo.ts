@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import type { Database } from "../types/database";
 import { usernameToStudentEmail } from "../lib/constants";
+import { recomputeStudentSkillScores } from "../lib/scoring/skill-scores";
 
 config({ path: ".env.local" });
 
@@ -285,6 +286,426 @@ const DEMO_TEXTS: DemoText[] = [
   },
 ];
 
+interface DemoQuestion {
+  type: "explicit" | "vocabulary" | "main_idea" | "evidence" | "inference" | "mcq";
+  skillKey: string;
+  question_text: string;
+  correct_answer?: string;
+  options?: { label: string; correct: boolean }[];
+}
+
+// 5 שאלות לכל טקסט (מידע מפורש, אוצר מילים, רעיון מרכזי, הוכחה, הסקת מסקנות) —
+// סה"כ 55 שאלות, לפי דרישת ה-Seed Data (סעיף 25 במפרט: לפחות 50 שאלות)
+const DEMO_QUESTIONS: Record<string, DemoQuestion[]> = {
+  "תעלומת הכדור שנעלם": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "מי שיחק כדורגל עם דניאל בהפסקה?",
+      options: [
+        { label: "אורי", correct: true },
+        { label: "יעל", correct: false },
+        { label: "נועה", correct: false },
+        { label: "הינשוף", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה המשמעות של המילה 'עקבות' בטקסט?",
+      correct_answer: "סימנים שמישהו או משהו השאיר אחריו, כמו סימני בוץ",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הסיפור?",
+      correct_answer: "לפני שמאשימים מישהו כדאי לחפש קודם הסבר הגיוני ופשוט",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזו שורה בטקסט עוזרת לדעת שהכדור לא נגנב על ידי מישהו?",
+      correct_answer: "הוא התגלגל לשם לבד כשהרוח נשבה חזק",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה דניאל ואורי חשבו בהתחלה שמישהו לקח את הכדור?",
+      correct_answer: "כי הכדור נעלם בפתאומיות והם לא ידעו שהרוח היא זו שהזיזה אותו",
+    },
+  ],
+  "מסע אל תוך החלל": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "כמה כוכבי לכת יש במערכת השמש?",
+      options: [
+        { label: "6", correct: false },
+        { label: "7", correct: false },
+        { label: "8", correct: true },
+        { label: "9", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה זה 'אסטרונאוט'?",
+      correct_answer: "אדם שהוכשר לטוס ולעבוד בחלל",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "בני אדם חוקרים את החלל באמצעות חלליות, לוויינים ותחנות חלל",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזה משפט בטקסט מסביר למה אסטרונאוטים לובשים חליפת חלל?",
+      correct_answer: "בחלל אין אוויר, ולכן אסטרונאוטים חייבים ללבוש חליפת חלל מיוחדת שמספקת להם חמצן לנשימה",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה אי אפשר לנשום בחלל בלי חליפה מיוחדת?",
+      correct_answer: "כי אין בחלל אוויר או חמצן",
+    },
+  ],
+  "איך נוצר גשם": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "איך נקרא התהליך שבו מים הופכים לאדים?",
+      options: [
+        { label: "התעבות", correct: false },
+        { label: "אידוי", correct: true },
+        { label: "קיפאון", correct: false },
+        { label: "מחזור", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה ההבדל בין אידוי להתעבות?",
+      correct_answer: "אידוי הוא הפיכת מים לאדים, והתעבות היא הפיכת אדים בחזרה לטיפות מים",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "מחזור המים בטבע - איך מים עוברים בין הים, העננים והגשם וחוזר חלילה",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזו שורה מסבירה למה לפעמים יורד שלג במקום גשם?",
+      correct_answer: "כשקר מאוד בעננים, הטיפות קופאות ונופלות כשלג או ברד במקום גשם",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "מה יקרה אם השמש תפסיק לחמם את המים באגמים ובימים?",
+      correct_answer: "לא יהיה אידוי, לא ייווצרו עננים, ולא יירד גשם",
+    },
+  ],
+  "דוד בן-גוריון ומגילת העצמאות": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "באיזה תאריך הוכרזה מדינת ישראל?",
+      options: [
+        { label: "14 במאי 1948", correct: true },
+        { label: "5 ביוני 1967", correct: false },
+        { label: "29 בנובמבר 1947", correct: false },
+        { label: "1 בינואר 1948", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה המשמעות של המילה 'פזורה'?",
+      correct_answer: "פיזור של קבוצת אנשים, כמו העם היהודי, במקומות רבים בעולם",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "הכרזת העצמאות של מדינת ישראל בהובלת דוד בן-גוריון, לאחר שנים של פעילות ציונית",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "אילו עקרונות קבעה מגילת העצמאות? הביאו שורה מהטקסט",
+      correct_answer: "שוויון זכויות לכל אזרחיה, חופש דת ומצפון, ושמירה על זכויות האדם",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה פרצה מלחמה מיד לאחר ההכרזה על המדינה?",
+      correct_answer: "כי מדינות שכנות לא הסכימו להקמת המדינה",
+    },
+  ],
+  "מיחזור בעיר שלנו": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "מה צבע פחי המיחזור לאיסוף אריזות בישראל?",
+      options: [
+        { label: "ירוק", correct: false },
+        { label: "כתום", correct: true },
+        { label: "כחול", correct: false },
+        { label: "אדום", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה זה 'זיהום אוויר'?",
+      correct_answer: "כשהאוויר מתלכלך מעשן וחומרים מזיקים",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "מיחזור עוזר לסביבה, וכל אחד יכול לתרום לכך גם בבית וגם בבית הספר",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזו שורה בטקסט מסבירה איך מיחזור עוזר לסביבה?",
+      correct_answer: "מיחזור מפחית את כמות האשפה, חוסך משאבי טבע ומפחית זיהום אוויר",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה חשוב להפריד בין סוגי הפסולת השונים?",
+      correct_answer: "כדי שיהיה אפשר למחזר כל חומר בנפרד ולהשתמש בו שוב",
+    },
+  ],
+  "הנסיכה שלא רצתה לישון": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "מי לקח את לירז לטיסה קסומה בלילה?",
+      options: [
+        { label: "מלך", correct: false },
+        { label: "ינשוף", correct: true },
+        { label: "דרקון", correct: false },
+        { label: "חברה שלה", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה המשמעות של המילה 'קסום' בטקסט?",
+      correct_answer: "משהו מיוחד ומופלא, כמו בסיפורי קסמים",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הסיפור?",
+      correct_answer: "יש קסם גם בלילה, אבל שינה טובה חשובה כדי ליהנות מהיום שלמחרת",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזו שורה מראה שלירז הבינה בסוף למה חשוב לישון?",
+      correct_answer: "שינה טובה היא חלק מההרפתקה - היא נותנת כוח לגלות עוד ועוד קסמים בכל יום חדש",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה לירז לא רצתה לישון בהתחלה?",
+      correct_answer: "היא חששה שתפספס דברים מעניינים שקורים בזמן שהיא ישנה",
+    },
+  ],
+  "איך בנוי טלפון חכם": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "מה תפקיד המעבד בטלפון?",
+      options: [
+        { label: "לצלם תמונות", correct: false },
+        { label: "לבצע חישובים ולהריץ אפליקציות", correct: true },
+        { label: "לשמור חשמל", correct: false },
+        { label: "לקלוט גלי רדיו", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה זה 'חיישן'?",
+      correct_answer: "חלק במכשיר שמזהה ומודד דברים כמו מגע, אור או תנועה",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "טלפון חכם בנוי מחלקים רבים שעובדים יחד - מסך, מעבד, זיכרון, סוללה ומצלמות",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזה משפט מסביר איך הטלפון מתחבר לאינטרנט?",
+      correct_answer: "הטלפון משתמש בגלי רדיו כדי לשלוח ולקבל מידע דרך האוויר, בלי כבל",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "מה יקרה לטלפון אם הסוללה תיגמר?",
+      correct_answer: "כל החלקים האחרים לא יקבלו חשמל והטלפון ייכבה, עד שיטענו אותו מחדש",
+    },
+  ],
+  "החברות של יעל ונועה": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "למה יעל הפסיקה לדבר עם נועה?",
+      options: [
+        { label: "היא הייתה עסוקה", correct: false },
+        { label: "היא הרגישה קנאה בגלל הציון", correct: true },
+        { label: "היא כעסה על ציור", correct: false },
+        { label: "היא עברה כיתה", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה המשמעות של המילה 'קנאה'?",
+      correct_answer: "תחושה לא נעימה כשמישהו אחר מצליח או מקבל משהו שרצינו",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הסיפור?",
+      correct_answer: "עדיף לעזור ולשמוח אחת בשביל השנייה מאשר להתחרות",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזו שורה מראה שגם נועה מקנאה ביעל?",
+      correct_answer: "את הכי טובה בציור בכל הכיתה! אני בכלל מקנאה בך על זה",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "מה לדעתך גרם ליעל להרגיש טוב יותר בסוף הסיפור?",
+      correct_answer: "היא גילתה שגם לנועה יש דברים שהיא מקנאה בהם, וזה גרם לה להרגיש פחות לבד",
+    },
+  ],
+  "בעלי חיים שמתחפשים": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "איזה בעל חיים נראה כמו ענף עץ יבש?",
+      options: [
+        { label: "זיקית", correct: false },
+        { label: "חרק המקל", correct: true },
+        { label: "דג ים שטוח", correct: false },
+        { label: "ינשוף", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה זה 'הסוואה'?",
+      correct_answer: "יכולת של בעל חיים להיראות דומה לסביבתו כדי להסתתר",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "בעלי חיים רבים פיתחו הסוואה כדי להסתתר מטורפים או לצוד טרף",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזה משפט מסביר איך הזיקית משנה צבע?",
+      correct_answer: "תאים מיוחדים בעורה מכילים פיגמנטים שמתרחבים או מתכווצים",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה בעלי חיים עם הסוואה טובה שורדים יותר?",
+      correct_answer: "כי קשה יותר לטורפים למצוא אותם, ולכן יש להם סיכוי גבוה יותר לשרוד ולהתרבות",
+    },
+  ],
+  "הצב והארנב": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "מי ניצח במרוץ?",
+      options: [
+        { label: "הארנב", correct: false },
+        { label: "הצב", correct: true },
+        { label: "תיקו", correct: false },
+        { label: "אף אחד לא סיים", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מה המשמעות של המילה 'התמדה'?",
+      correct_answer: "היכולת להמשיך לנסות ולא לוותר",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו מוסר ההשכל של הסיפור?",
+      correct_answer: "התמדה וסבלנות חשובות לפעמים יותר מכישרון או מהירות",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזו שורה מראה שהארנב היה בטוח מדי בעצמו?",
+      correct_answer: "הוא היה כל כך בטוח בניצחון שהחליט לעצור לנוח קצת בצל עץ",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה הצב הצליח לנצח למרות שהוא איטי יותר מהארנב?",
+      correct_answer: "כי הוא המשיך לצעוד בלי הפסקה בזמן שהארנב נרדם באמצע המרוץ",
+    },
+  ],
+  "איך בונים גשר": [
+    {
+      type: "mcq",
+      skillKey: "explicit_info",
+      question_text: "מהו גשר הקורות?",
+      options: [
+        { label: "גשר עם כבלים תלויים", correct: false },
+        { label: "הגשר הפשוט ביותר לבנייה", correct: true },
+        { label: "גשר שנבנה מתחת למים", correct: false },
+        { label: "גשר זמני בלבד", correct: false },
+      ],
+    },
+    {
+      type: "vocabulary",
+      skillKey: "vocabulary",
+      question_text: "מהו תפקידו של מהנדס?",
+      correct_answer: "אדם שמתכנן ובונה מבנים, מכונות או מערכות",
+    },
+    {
+      type: "main_idea",
+      skillKey: "main_idea",
+      question_text: "מהו הרעיון המרכזי של הטקסט?",
+      correct_answer: "בניית גשר דורשת תכנון קפדני כדי שיהיה גם חזק וגם גמיש",
+    },
+    {
+      type: "evidence",
+      skillKey: "explicit_info",
+      question_text: "איזה משפט מסביר למה גשר חייב להיות גם חזק וגם גמיש?",
+      correct_answer: "הגשר חייב להיות חזק דיו כדי לא לקרוס, אך גם גמיש דיו כדי להתמודד עם רוח ורעידות",
+    },
+    {
+      type: "inference",
+      skillKey: "inference",
+      question_text: "למה מהנדסים בונים דגמים קטנים ומריצים סימולציות לפני הבנייה בפועל?",
+      correct_answer: "כדי לבדוק שהגשר יעמוד בעומסים ובתנאי מזג האוויר, לפני שמשקיעים בבנייה האמיתית",
+    },
+  ],
+};
+
 async function findUserByEmail(email: string) {
   // Admin API אינו תומך בחיפוש לפי email ישירות בכל הגרסאות — נשתמש ב-listUsers עם pagination קטנה,
   // מספיק לכמות הדמו הקטנה כאן.
@@ -363,7 +784,48 @@ async function ensureStudent(
     .upsert({ class_id: classId, student_id: user!.id }, { onConflict: "class_id,student_id" });
 }
 
+async function ensureQuestionsForText(textId: string, title: string, skillIdByKey: Map<string, string>) {
+  const demoQuestions = DEMO_QUESTIONS[title];
+  if (!demoQuestions) return;
+
+  const { data: existingQuestions } = await supabase
+    .from("questions")
+    .select("question_text")
+    .eq("text_id", textId);
+  const existingTexts = new Set((existingQuestions ?? []).map((q) => q.question_text));
+
+  let created = 0;
+  for (const [index, q] of demoQuestions.entries()) {
+    if (existingTexts.has(q.question_text)) continue;
+
+    const skillId = skillIdByKey.get(q.skillKey);
+    const options = q.options?.map((o, i) => ({ key: String(i + 1), label: o.label }));
+    const correctOption = q.options?.findIndex((o) => o.correct);
+    const correctAnswer =
+      q.type === "mcq" && correctOption !== undefined && correctOption >= 0
+        ? String(correctOption + 1)
+        : q.correct_answer;
+
+    const { error } = await supabase.from("questions").insert({
+      text_id: textId,
+      skill_id: skillId ?? null,
+      type: q.type,
+      question_text: q.question_text,
+      options: options ?? null,
+      correct_answer: correctAnswer ?? null,
+      difficulty: "בינוני",
+      order_index: index,
+    });
+    if (error) console.error(`❌ יצירת שאלה נכשלה (${title}):`, error);
+    else created += 1;
+  }
+  if (created > 0) console.log(`   ↳ נוספו ${created} שאלות ל"${title}"`);
+}
+
 async function ensureTexts(teacherId: string) {
+  const { data: skills } = await supabase.from("skills").select("id, key");
+  const skillIdByKey = new Map((skills ?? []).map((s) => [s.key, s.id]));
+
   for (const demoText of DEMO_TEXTS) {
     const { data: existing } = await supabase
       .from("texts")
@@ -373,6 +835,7 @@ async function ensureTexts(teacherId: string) {
 
     if (existing) {
       console.log(`↪️  טקסט כבר קיים: ${demoText.title}`);
+      await ensureQuestionsForText(existing.id, demoText.title, skillIdByKey);
       continue;
     }
 
@@ -395,6 +858,210 @@ async function ensureTexts(teacherId: string) {
     }
 
     console.log(`✅ נוצר טקסט: ${demoText.title}`);
+    await ensureQuestionsForText(created.id, demoText.title, skillIdByKey);
+  }
+}
+
+interface HistoricalAnswer {
+  // אחוז ההתאמה: לשאלת mcq - true/false, לשאלה פתוחה - ai_score מדומה (0-100)
+  // (בסביבת אמת, ai_score נקבע ע"י lib/ai/evaluateAnswer - כאן מדמים תוצאה כדי שיהיו
+  // נתוני קריאה היסטוריים אמיתיים להדגמה, כנדרש בסעיף 25 במפרט)
+  mcqCorrect: boolean;
+  vocabularyScore: number;
+  mainIdeaScore: number;
+  evidenceScore: number;
+  inferenceScore: number;
+  wpmEstimated: number;
+  reflection: string;
+}
+
+const HISTORICAL_PATTERNS: Record<string, HistoricalAnswer> = {
+  shlomi: {
+    mcqCorrect: true,
+    vocabularyScore: 85,
+    mainIdeaScore: 80,
+    evidenceScore: 82,
+    inferenceScore: 45, // מתקשה בהסקת מסקנות
+    wpmEstimated: 95,
+    reflection: "למדתי שיש שמונה כוכבי לכת במערכת השמש ושאסטרונאוטים צריכים חליפה מיוחדת.",
+  },
+  yehonatan: {
+    mcqCorrect: true,
+    vocabularyScore: 75,
+    mainIdeaScore: 40, // מתקשה בזיהוי רעיון מרכזי
+    evidenceScore: 70,
+    inferenceScore: 65,
+    wpmEstimated: 58, // קצב קריאה נמוך יחסית
+    reflection: "למדתי על החלל ועל אסטרונאוטים.",
+  },
+  israel: {
+    mcqCorrect: true,
+    vocabularyScore: 35, // מתקשה באוצר מילים
+    mainIdeaScore: 78,
+    evidenceScore: 80,
+    inferenceScore: 72,
+    wpmEstimated: 88,
+    reflection: "החלל הוא מקום ענק עם הרבה כוכבים.",
+  },
+  noa: {
+    mcqCorrect: true,
+    vocabularyScore: 88,
+    mainIdeaScore: 90,
+    evidenceScore: 85,
+    inferenceScore: 80,
+    wpmEstimated: 102,
+    reflection: "אני חושבת שהכי מעניין זה שאנשים גרים בתחנת החלל ועושים שם ניסויים מדעיים.",
+  },
+};
+
+async function ensureAssignmentAndHistory(teacherId: string, classId: string) {
+  const { data: text } = await supabase
+    .from("texts")
+    .select("id")
+    .eq("title", "מסע אל תוך החלל")
+    .maybeSingle();
+  if (!text) return;
+
+  const { data: questions } = await supabase
+    .from("questions")
+    .select("id, type, skill_id")
+    .eq("text_id", text.id)
+    .order("order_index");
+  if (!questions || questions.length < 5) return;
+  const [mcqQ, vocabQ, mainIdeaQ, evidenceQ, inferenceQ] = questions;
+
+  const { data: inferenceSkill } = await supabase
+    .from("skills")
+    .select("id")
+    .eq("key", "inference")
+    .single();
+
+  let { data: assignment } = await supabase
+    .from("assignments")
+    .select("id")
+    .eq("class_id", classId)
+    .eq("text_id", text.id)
+    .maybeSingle();
+
+  if (!assignment) {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 5);
+    const { data: created, error } = await supabase
+      .from("assignments")
+      .insert({
+        teacher_id: teacherId,
+        class_id: classId,
+        text_id: text.id,
+        title: 'משימת קריאה - "מסע אל תוך החלל"',
+        instructions: "קראו את הטקסט וענו על השאלות",
+        skill_focus: inferenceSkill ? [inferenceSkill.id] : [],
+        due_date: dueDate.toISOString().slice(0, 10),
+      })
+      .select("id")
+      .single();
+    if (error || !created) {
+      console.error("❌ יצירת משימת הדמו נכשלה:", error);
+      return;
+    }
+    assignment = created;
+    console.log('✅ נוצרה משימת קריאה: "מסע אל תוך החלל"');
+  } else {
+    console.log("↪️  משימת הדמו כבר קיימת");
+  }
+
+  for (const [username, pattern] of Object.entries(HISTORICAL_PATTERNS)) {
+    const user = await findUserByEmail(usernameToStudentEmail(username));
+    if (!user) continue;
+
+    const { data: existingSession } = await supabase
+      .from("reading_sessions")
+      .select("id")
+      .eq("student_id", user.id)
+      .eq("assignment_id", assignment.id)
+      .maybeSingle();
+    if (existingSession) {
+      console.log(`↪️  נתוני קריאה היסטוריים כבר קיימים עבור ${username}`);
+      continue;
+    }
+
+    const startedAt = new Date();
+    startedAt.setDate(startedAt.getDate() - 3);
+    const durationSeconds = 210;
+
+    const { data: session, error: sessionError } = await supabase
+      .from("reading_sessions")
+      .insert({
+        student_id: user.id,
+        text_id: text.id,
+        assignment_id: assignment.id,
+        reading_mode: "silent",
+        status: "completed",
+        duration_seconds: durationSeconds,
+        wpm_estimated: pattern.wpmEstimated,
+        is_estimated: true,
+        reflection_text: pattern.reflection,
+      })
+      .select("id")
+      .single();
+
+    if (sessionError || !session) {
+      console.error(`❌ יצירת מפגש קריאה היסטורי נכשלה (${username}):`, sessionError);
+      continue;
+    }
+
+    await supabase.from("answers").insert([
+      {
+        session_id: session.id,
+        question_id: mcqQ.id,
+        student_answer: "1",
+        is_correct: pattern.mcqCorrect,
+      },
+      {
+        session_id: session.id,
+        question_id: vocabQ.id,
+        student_answer: "תשובת דמו",
+        ai_score: pattern.vocabularyScore,
+        is_correct: pattern.vocabularyScore >= 60,
+      },
+      {
+        session_id: session.id,
+        question_id: mainIdeaQ.id,
+        student_answer: "תשובת דמו",
+        ai_score: pattern.mainIdeaScore,
+        is_correct: pattern.mainIdeaScore >= 60,
+      },
+      {
+        session_id: session.id,
+        question_id: evidenceQ.id,
+        student_answer: "תשובת דמו",
+        ai_score: pattern.evidenceScore,
+        is_correct: pattern.evidenceScore >= 60,
+      },
+      {
+        session_id: session.id,
+        question_id: inferenceQ.id,
+        student_answer: "תשובת דמו",
+        ai_score: pattern.inferenceScore,
+        is_correct: pattern.inferenceScore >= 60,
+      },
+    ]);
+
+    await supabase.from("assignment_submissions").upsert(
+      {
+        assignment_id: assignment.id,
+        student_id: user.id,
+        session_id: session.id,
+        status: "completed",
+        submitted_at: new Date().toISOString(),
+        score: Math.round(
+          (pattern.vocabularyScore + pattern.mainIdeaScore + pattern.evidenceScore + pattern.inferenceScore) / 4
+        ),
+      },
+      { onConflict: "assignment_id,student_id" }
+    );
+
+    await recomputeStudentSkillScores(user.id);
+    console.log(`✅ נוצרו נתוני קריאה היסטוריים עבור ${username}`);
   }
 }
 
@@ -409,6 +1076,7 @@ async function main() {
   }
 
   await ensureTexts(teacher.id);
+  await ensureAssignmentAndHistory(teacher.id, classId);
 
   console.log("\n✅ סיום. פרטי התחברות לדמו:");
   console.log(`   מורה  -> אימייל: ${DEMO_TEACHER.email} | סיסמה: ${DEMO_TEACHER.password}`);
