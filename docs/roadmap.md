@@ -13,7 +13,7 @@
 | 9 | Personalization Engine | ✅ |
 | 10 | Analytics (פרופיל קורא, גרפים, דוח שבועי) | ✅ |
 | 11 | Gamification | ✅ |
-| 12 | AI Text Generator + Teacher/Student AI chat | ⬜ |
+| 12 | AI Text Generator + Teacher/Student AI chat | ✅ |
 | 13 | Testing, error states, accessibility, polish | ⬜ |
 
 ראו את הודעת האישור המקורית לפירוט הארכיטקטורה, ה-DB schema, וניתוח הסיכונים.

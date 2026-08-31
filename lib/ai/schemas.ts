@@ -58,6 +58,42 @@ export const weeklyReportOutputSchema = z.object({
 });
 export type WeeklyReportOutput = z.infer<typeof weeklyReportOutputSchema>;
 
+/**
+ * הפלט המובנה של generateTextWithQuestions (סעיף 8 במפרט - AI Text Generator).
+ * מייצר בקריאה אחת גם את הטקסט וגם את מערך השאלות הנלוות, לפי סוגי השאלות
+ * הנדרשים: מידע מפורש/הבנה, הסקת מסקנות, אוצר מילים, רעיון מרכזי, הוכחה.
+ */
+export const generatedQuestionSchema = z.object({
+  type: z.enum(["explicit", "inference", "main_idea", "vocabulary", "evidence", "critical", "mcq"]),
+  skill_key: z
+    .string()
+    .describe("מפתח המיומנות המתאימה מתוך: accuracy, fluency, vocabulary, comprehension, explicit_info, inference, main_idea, sequence, cause_effect, reasoning"),
+  question_text: z.string(),
+  options: z
+    .array(z.object({ label: z.string() }))
+    .max(4)
+    .optional()
+    .describe("רק לשאלות מסוג mcq - בין 2 ל-4 אפשרויות"),
+  correct_option_index: z.number().int().min(0).optional().describe("רק לשאלות mcq - אינדקס האפשרות הנכונה (0-מבוסס)"),
+  reference_answer: z.string().optional().describe("לשאלות פתוחות - קו מנחה קצר לתשובה טובה"),
+});
+
+export const generateTextWithQuestionsOutputSchema = z.object({
+  title: z.string().describe("כותרת קצרה ומושכת לטקסט"),
+  content: z.string().describe("גוף הטקסט המלא, בעברית תקנית ומתאימה לגיל היעד"),
+  cover_icon: z.string().describe("אימוג'י אחד שמייצג את נושא הטקסט"),
+  vocabulary_words: z
+    .array(z.object({ word: z.string(), definition: z.string() }))
+    .min(2)
+    .max(4)
+    .describe("2-4 מילים מהטקסט שכדאי להכיר, עם הגדרה קצרה מתאימה לגיל"),
+  questions: z
+    .array(generatedQuestionSchema)
+    .min(5)
+    .describe("לפחות 5 שאלות: לפחות אחת מכל סוג - מידע מפורש, הסקת מסקנות, אוצר מילים, רעיון מרכזי, הוכחה מהטקסט"),
+});
+export type GenerateTextWithQuestionsOutput = z.infer<typeof generateTextWithQuestionsOutputSchema>;
+
 /** תוצאה בטוחה לשימוש כש-AI לא זמין (סעיף 26 במפרט - אין לקרוס, יש להמשיך לעבוד) */
 export interface AiUnavailable {
   unavailable: true;
