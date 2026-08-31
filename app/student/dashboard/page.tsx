@@ -13,9 +13,9 @@ export const metadata = { title: "הבית שלי — ReadWise AI" };
 export default async function StudentDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ completed?: string }>;
+  searchParams: Promise<{ completed?: string; points?: string; newAchievements?: string }>;
 }) {
-  const { completed } = await searchParams;
+  const { completed, points, newAchievements } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,8 +39,15 @@ export default async function StudentDashboardPage({
   return (
     <div className="flex flex-col gap-6">
       {completed === "1" && (
-        <div className="rounded-lg bg-success/15 px-4 py-3 text-sm font-medium text-success" role="status">
-          כל הכבוד! השלמת את משימת הקריאה 🎉
+        <div className="flex flex-col gap-1 rounded-lg bg-success/15 px-4 py-3 text-sm font-medium text-success" role="status">
+          <p>
+            כל הכבוד! השלמת את משימת הקריאה 🎉{points ? ` קיבלת ${points} נקודות.` : ""}
+          </p>
+          {newAchievements && Number(newAchievements) > 0 && (
+            <Link href="/student/achievements" className="underline underline-offset-2">
+              פתחת {newAchievements === "1" ? "הישג חדש" : `${newAchievements} הישגים חדשים`}! לחצו לצפייה 🏆
+            </Link>
+          )}
         </div>
       )}
 

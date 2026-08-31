@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { recomputeStudentSkillScores } from "@/lib/scoring/skill-scores";
+import { awardCompletionRewards, type CompletionRewards } from "@/lib/scoring/gamification";
 import { evaluateAnswer } from "@/lib/ai/evaluateAnswer";
 import { generateHint } from "@/lib/ai/generateHint";
 import type { ReadingMode } from "@/types/database";
@@ -277,12 +278,12 @@ export async function resubmitAnswer(
   return { ...results[questionId], hintsUsed: existingAnswer?.hints_used ?? 0 };
 }
 
-export async function submitReflection(sessionId: string, reflectionText: string) {
+export async function submitReflection(sessionId: string, reflectionText: string): Promise<CompletionRewards | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return null;
 
   const { data: session } = await supabase
     .from("reading_sessions")
@@ -320,4 +321,9 @@ export async function submitReflection(sessionId: string, reflectionText: string
   await recomputeStudentSkillScores(user.id);
   revalidatePath(`/teacher/students/${user.id}`);
   revalidatePath("/teacher/dashboard");
+
+  const rewards = await awardCompletionRewards(user.id, sessionId);
+  revalidatePath("/student/dashboard");
+  revalidatePath("/student/achievements");
+  return rewards;
 }

@@ -20,8 +20,15 @@ export function SummaryStep({ sessionId }: { sessionId: string }) {
       return;
     }
     startTransition(async () => {
-      await submitReflection(sessionId, text.trim());
-      router.push("/student/dashboard?completed=1");
+      const rewards = await submitReflection(sessionId, text.trim());
+      const params = new URLSearchParams({ completed: "1" });
+      if (rewards) {
+        params.set("points", String(rewards.pointsAwarded));
+        if (rewards.newAchievements.length > 0) {
+          params.set("newAchievements", String(rewards.newAchievements.length));
+        }
+      }
+      router.push(`/student/dashboard?${params.toString()}`);
     });
   }
 
