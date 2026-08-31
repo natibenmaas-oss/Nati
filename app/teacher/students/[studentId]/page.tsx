@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { Sparkles, ThumbsUp, Target } from "lucide-react";
+import { Sparkles, ThumbsUp, Target, LineChart as LineChartIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentProfileData } from "@/lib/scoring/student-profile";
+import { getStudentProgressHistory } from "@/lib/scoring/progress-history";
 import { getStoredRecommendation } from "@/lib/actions/recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { SkillBar } from "@/components/shared/skill-bar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TeacherNotesPanel } from "@/components/teacher/teacher-notes-panel";
 import { AiRecommendationPanel } from "@/components/teacher/ai-recommendation-panel";
+import { ProgressChart } from "@/components/student/progress-chart";
 
 export default async function StudentProfilePage({
   params,
@@ -34,7 +36,7 @@ export default async function StudentProfilePage({
 
   if (!profile || !student) notFound();
 
-  const [{ skills, strengths, weaknesses }, { data: notes }, recommendation] = await Promise.all([
+  const [{ skills, strengths, weaknesses }, { data: notes }, recommendation, { overall }] = await Promise.all([
     getStudentProfileData(studentId),
     supabase
       .from("teacher_notes")
@@ -43,6 +45,7 @@ export default async function StudentProfilePage({
       .eq("student_id", studentId)
       .order("created_at", { ascending: false }),
     getStoredRecommendation(studentId),
+    getStudentProgressHistory(studentId),
   ]);
 
   return (
@@ -122,6 +125,26 @@ export default async function StudentProfilePage({
                 <SkillBar key={s.skillKey} label={s.skillName} value={s.score} sampleSize={s.sampleSize} />
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LineChartIcon className="size-5 text-primary" aria-hidden />
+            התקדמות לאורך זמן
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pb-6">
+          {overall.length === 0 ? (
+            <EmptyState
+              icon={LineChartIcon}
+              title="עדיין אין מספיק נתונים"
+              description="גרף ההתקדמות יופיע לאחר שהתלמיד/ה ישלים/תשלים כמה משימות קריאה."
+            />
+          ) : (
+            <ProgressChart data={overall} />
           )}
         </CardContent>
       </Card>

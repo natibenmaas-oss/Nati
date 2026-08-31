@@ -306,6 +306,10 @@ export interface Database {
           updated_at?: string;
         }
       >;
+      student_skill_score_history: Table<
+        { id: string; student_id: string; skill_id: string; score: number; recorded_at: string },
+        { id?: string; student_id: string; skill_id: string; score: number; recorded_at?: string }
+      >;
       student_vocabulary: Table<
         {
           id: string;

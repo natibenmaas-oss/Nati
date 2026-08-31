@@ -81,5 +81,12 @@ export async function recomputeStudentSkillScores(studentId: string): Promise<vo
       },
       { onConflict: "student_id,skill_id" }
     );
+
+    // תמונת מצב להיסטוריה - זה מה שמאפשר גרף "התקדמות לאורך זמן" (סעיפים 17, 20)
+    await admin.from("student_skill_score_history").insert({
+      student_id: studentId,
+      skill_id: skillId,
+      score: average,
+    });
   }
 }

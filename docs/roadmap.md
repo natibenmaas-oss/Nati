@@ -11,7 +11,7 @@
 | 7 | AI Evaluation (evaluateAnswer, generateHint) | ✅ (קוד מוכן, טרם נבדק מול מפתח Anthropic חי) |
 | 8 | Reading Aloud (Web Speech API) | ✅ |
 | 9 | Personalization Engine | ✅ |
-| 10 | Analytics (פרופיל קורא, גרפים, דוח שבועי) | ⬜ |
+| 10 | Analytics (פרופיל קורא, גרפים, דוח שבועי) | ✅ |
 | 11 | Gamification | ⬜ |
 | 12 | AI Text Generator + Teacher/Student AI chat | ⬜ |
 | 13 | Testing, error states, accessibility, polish | ⬜ |

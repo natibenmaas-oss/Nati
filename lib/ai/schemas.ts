@@ -46,6 +46,18 @@ export const analyzeStudentOutputSchema = z.object({
 });
 export type AnalyzeStudentOutput = z.infer<typeof analyzeStudentOutputSchema>;
 
+/**
+ * הפלט המובנה של generateWeeklyReport (סעיף 20 במפרט - סיכום שבועי למורה).
+ */
+export const weeklyReportOutputSchema = z.object({
+  headline: z.string().describe("משפט פתיחה קצר שמסכם את השבוע (חיובי/מעודד גם אם התוצאות מעורבות)"),
+  highlights: z
+    .array(z.string())
+    .describe("2-4 נקודות עובדתיות קצרות המבוססות אך ורק על הנתונים שסופקו (למשל: 'X תלמידים השתפרו ב-Y')"),
+  recommendation: z.string().describe("המלצה מעשית אחת לשבוע הבא, קצרה וברורה"),
+});
+export type WeeklyReportOutput = z.infer<typeof weeklyReportOutputSchema>;
+
 /** תוצאה בטוחה לשימוש כש-AI לא זמין (סעיף 26 במפרט - אין לקרוס, יש להמשיך לעבוד) */
 export interface AiUnavailable {
   unavailable: true;
