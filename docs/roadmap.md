@@ -6,7 +6,7 @@
 | 2 | Supabase: migrations, RLS, Auth, ניתוב לפי role | ✅ (קוד מוכן, טרם נבדק מול פרויקט Supabase חי) |
 | 3 | Teacher Dashboard | ✅ |
 | 4 | Student Dashboard | ✅ |
-| 5 | Text Engine (בנק טקסטים + סינון + seed) | ⬜ |
+| 5 | Text Engine (בנק טקסטים + סינון + seed) | ✅ |
 | 6 | Question Engine + 5 שלבי משימת קריאה | ⬜ |
 | 7 | AI Evaluation (evaluateAnswer, generateHint) | ⬜ |
 | 8 | Reading Aloud (Web Speech API) | ⬜ |
