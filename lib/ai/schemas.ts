@@ -1,0 +1,36 @@
+import { z } from "zod";
+
+/**
+ * הפלט המובנה של evaluateAnswer (סעיף 13 במפרט). נשמר כפי שהוא ב-answers.ai_feedback.
+ * ה-descriptions מועברים בפועל למודל כחלק מה-JSON schema (structured outputs) -
+ * הם לא רק תיעוד לקוד.
+ */
+export const evaluateAnswerOutputSchema = z.object({
+  score: z.number().min(0).max(100).describe("ציון 0-100 המשקף עד כמה התשובה נכונה ומבוססת על הטקסט"),
+  correct: z.boolean().describe("האם התשובה נכונה באופן מהותי (גם אם לא מנוסחת בצורה מושלמת)"),
+  reasoning: z.string().describe("הסבר קצר (למורה) לשיפוט - למה ניתן הציון הזה"),
+  missing_elements: z
+    .array(z.string())
+    .describe("מרכיבים חשובים שחסרים בתשובה, אם יש (רשימה ריקה אם התשובה מלאה)"),
+  feedback: z
+    .string()
+    .describe("משוב קצר, חיובי ומותאם לילד/ה בבית ספר יסודי, בעברית, ללא מתן התשובה הנכונה"),
+  next_step: z
+    .string()
+    .describe("המלצה קצרה מה כדאי לתלמיד/ה לעשות עכשיו (למשל: לנסות שוב, לבקש רמז, להמשיך)"),
+});
+export type EvaluateAnswerOutput = z.infer<typeof evaluateAnswerOutputSchema>;
+
+export const generateHintOutputSchema = z.object({
+  hint: z.string().describe("רמז קצר, בעברית, מותאם לילד/ה - לא חושף את התשובה הנכונה"),
+  is_final_explanation: z
+    .boolean()
+    .describe("true רק אם זהו הרמז השלישי ואילך, ולכן מותר להסביר את התשובה בעדינות"),
+});
+export type GenerateHintOutput = z.infer<typeof generateHintOutputSchema>;
+
+/** תוצאה בטוחה לשימוש כש-AI לא זמין (סעיף 26 במפרט - אין לקרוס, יש להמשיך לעבוד) */
+export interface AiUnavailable {
+  unavailable: true;
+  message: string;
+}
