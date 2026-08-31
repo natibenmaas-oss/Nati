@@ -15,7 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import type { Database } from "../types/database";
 import { usernameToStudentEmail } from "../lib/constants";
-import { recomputeStudentSkillScores } from "../lib/scoring/skill-scores";
+import { recomputeStudentSkillScoresWithClient } from "../lib/scoring/skill-scores-core";
 
 config({ path: ".env.local" });
 
@@ -1060,7 +1060,7 @@ async function ensureAssignmentAndHistory(teacherId: string, classId: string) {
       { onConflict: "assignment_id,student_id" }
     );
 
-    await recomputeStudentSkillScores(user.id);
+    await recomputeStudentSkillScoresWithClient(supabase, user.id);
     console.log(`✅ נוצרו נתוני קריאה היסטוריים עבור ${username}`);
   }
 }
